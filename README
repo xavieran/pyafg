@@ -1,0 +1,15 @@
+                                         __       
+                      _ __  _   _  __ _ / _| __ _ 
+                     | '_ \| | | |/ _` | |_ / _` |
+                     | |_) | |_| | (_| |  _| (_| |
+                     | .__/ \__, |\__,_|_|  \__, |
+                     |_|    |___/           |___/ 
+
+
+                   ]] Affine Fractal Generator [[
+
+pyafg is an affine fractal generator written in python and using PIL and pygame for image rendering. It can save fractals as an image, or view fractals being generated with pygame. Included is libifs, a flexible library for drawing affine fractals. This can easily be extended to add different colorings and outputs (GTK anyone? :).
+
+Usage:
+  This is a Work In Progress, so for now, just check out the examples file and the .frct files in fractals for examples on how to use. The manpage is yet to come ;)                                                                           A
+
