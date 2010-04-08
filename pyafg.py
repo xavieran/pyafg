@@ -1,34 +1,29 @@
 #!/usr/bin/env python
-#IFS machine...
 #
-
-#TODO:
-#Handle colors nicely
-#Add options
-#Seperate, but add a transform editor.
-#Options are:
-#width, height, iterations, skiplen, how to plot (PIL, pygame, GTK, both?)
-#scale, x and y offsets, 
-
+#       pyafg.py
+#       
+#       Copyright 2010 Emmanuel Jacyna <xavieran.lives@gmail.com>
+#       
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.#!/usr/bin/env python
+#
+#IFS affine fractal generator
+#
 import sys
 
-#To be honest, we don't really need numpy for this...
-import random
-random_float = random.random
-        
-    
-
-#Constants used to index tuples
-RULE_A_I = 0
-RULE_B_I = 1
-RULE_C_I = 2
-RULE_D_I = 3
-RULE_E_I = 4
-RULE_F_I = 5
-
-PROB_I = 0
-RULE_I = 1
-
+from libifs import *
 
 global VERBOSITY
 VERBOSITY = 1
@@ -148,10 +143,10 @@ def calculate_best_settings(rules, scale, iters = 10000, skip = 100):
         
     run_IFS(iters, skip, rules, draw_method)
     hx,lx,hy,ly = GLOBAL_h_x, GLOBAL_l_x, GLOBAL_h_y, GLOBAL_l_y
-    width = abs(lx)+abs(hx)
-    height = abs(ly)+abs(hy)
-    x_off = abs(lx)
-    y_off = abs(ly)
+    width = int(abs(lx)+abs(hx))
+    height = int(abs(ly)+abs(hy))
+    x_off = int(abs(lx))
+    y_off = int(abs(ly))
 
     return ((width, height), (x_off, y_off))
 
@@ -175,17 +170,39 @@ if __name__ == "__main__":
 #scale, x and y offsets,
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option("-s", "--scale", type = "int", default = 0)
-    parser.add_option("-x", "--x-offset", type = "int", default = 0)
-    parser.add_option("-y", "--y-offset", type = "int", default = 0)
-    parser.add_option("-g", "--geometry", type = "string", default = "")
-    parser.add_option("-i", "--iterations", type = "int", default = 100000)
-    parser.add_option("--color-type", type = "int", default = COLOR_NORMAL)
-    parser.add_option("--color", type = "string", default = "000255000")
-    parser.add_option("--color-file", type = "string", default = "")
-    parser.add_option("-o", "--save", type = "string", default = "")
+    parser.description = "%prog (pyafg is an affine fractal generator) is a utility"+\
+        " to draw affine transformation fractals"+\
+        " with or without a display. It uses PIL for image rendering, and pygame"+\
+        " if you want to watch the fractal being drawn."
+    parser.usage = "%prog [options] <fractal.frct>"
+    parser.prog = "pyafg"
+    parser.add_option("-s", "--scale", type = "int", default = 0,\
+        help = "The scaling factor for your fractal. 100 is usually a good try")
+    parser.add_option("-a", "--autocalc", action = "store_true", default = False,\
+        help = "Print out autocalced dimensions and offsets for this scaling.")
+    parser.add_option("-x", "--x-offset", type = "int", default = 0,\
+        help = "x offset for the fractal. negative values allowed")
+    parser.add_option("-y", "--y-offset", type = "int", default = 0,\
+        help = "the y offset for the fractal. negative values allowed")
+    parser.add_option("-g", "--geometry", type = "string", default = "",\
+        help = "Size of the viewing window (or image). In WxH format. eg. 120x240")
+    parser.add_option("-i", "--iterations", type = "int", default = 100000,\
+        help = "The number of iterations to go through.")
+    parser.add_option("--color-type", type = "int", default = COLOR_NORMAL,\
+        help = "The type of coloring you want. Choices from COLOR_NORMAL (0),"+\
+        "COLOR_REGION (1), or COLOR_FANCY (2). Check the man page for details.")
+    parser.add_option("--color", type = "string", default = "000255000",\
+        help = "A RRRGGGBBB string for the color to be used. If color-type is"+\
+        " 2, you'll need to give as many colors as there are rules in your fractal")
+    parser.add_option("--color-file", type = "string", default = "",\
+        help = "A file with RRRGGGBBB strings separated by newline. # is a comment character")
+    parser.add_option("--add-alpha", action = "store_true", default = False,\
+        help = "Interpret colors as RRRGGGBBBAAA. This may not work with pygame")
+    parser.add_option("-o", "--save", type = "string", default = "",\
+        help = "The file to save an image to. If this is set, the pygame display"+\
+        " will not be shown, and the image generated will be saved to named file")
     parser.add_option("-q", "--quiet", action = "store_false",\
-                      default = "verbosity")
+                      default = "verbosity", help = "No output")
     parser.add_option("--progress", action = "store_true", default = False)
     parser.add_option("-v", "--verbosity", action = "store", type = "int",\
                       default = 1)
@@ -198,9 +215,19 @@ if __name__ == "__main__":
     scale = opts.scale
     if not scale:
         parser.error("argument -s/--scale is compulsory!")
-        
+    
+    if not args:
+        parser.error("must specify a .frct file to use!")
     rules = load_file(args[0])
     
+    if opts.autocalc:
+        dim, offsets = calculate_best_settings(rules, scale)
+        print "Dimensions: %dx%d"%(dim[0],dim[1])
+        print """Offsets: x: %d
+         y: %d"""%(offsets[0],offsets[1])
+        sys.exit(0)
+        
+
     its = opts.iterations
 
     if opts.color_file: colors = load_colors_from_file(opts.color_file)

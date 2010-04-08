@@ -1,0 +1,8 @@
+TODO:
+Handle colors nicely
+Add transform editor
+Write tests for libifs.py
+Make coloring images saner
+Add/extend coloring algorithms
+Optimize?
+
