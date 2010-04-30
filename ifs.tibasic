@@ -1,0 +1,24 @@
+ifs(r)
+Prgm
+rand()->a
+rand()->b
+
+0->i
+1000000->iters
+100->s
+
+While i<iters+s
+1->c
+rand()->l
+While p<l
+1+c->c
+r[c,7]+p->p
+EndWhile
+r[c,1]*a+r[c,2]*b+r[c,5]->t
+r[c,3]*a+r[c,4]*b+r[c,6]->b
+t->a
+If i>s
+PtOn a,b
+1+i->i
+EndWhile
+EndPrgm
