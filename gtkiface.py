@@ -33,7 +33,7 @@ class Window:
     def expose_handler(self, widget, event) :
         w, h = widget.window.get_size()
         xgc = widget.window.new_gc()
-        xgc.set_rgb_fg_color(gtk.gdk.color_parse("red"))
+        xgc.set_rgb_fg_color(gtk.gdk.color_parse("cyan"))
         if not self.have_drawn:
             rules = load_file("fractals/fern.frct")
             for i in generate_IFS(100000, rules):

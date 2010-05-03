@@ -73,71 +73,45 @@ def choose_rule(probs):
         prob += probs[chosen]
     return chosen
 
-def run_IFS(iters, skip, rules, draw_method, speak_method=None,\
-            announce_interval=None, xy=None, i=0):
+def generate_IFS(iters, skip, rules):
     """Run the IFS iteration loop
     
 iters: number of iterations
 skip: number of iterations to skip (the first 100 or so won't be accurate)
-rules: a list of rules and their probabilities. Looks like: [(probs, rule)...
-draw_method: a function to be called each iteration after skip. This function
-    must take x and y as arguments, and also chosen (If you're colorising).
-    This could be a method to draw to a GUI canvas, or to draw to an image file,
-    or even something that simply uses the x and y values to calculate how
-    big a canvas would need to be.
-    Note, that the x and y values will be in their raw decimal form, so
-    any scaling must be performed by your function
-speak_method: a function to be called to announce the progress. It will be
-    called with speak_method(x, y, current iteration).
-announce_interval: This will be used to calculate when we need to
-    call speak_method. Every announce_interval iterations, speak_method will
-    be called. eg. if you had 100000 iterations, you might want to set
-    announce_interval to 1000
-xy: a tuple with x,y coordinates. You might want to use this to pick up a
-    calculation where it left off, for example."""
+rules: a list of rules and their probabilities. Looks like: [(probs, rule)..."""
     
     probs = [r[PROB_I] for r in rules]
     rules = [r[RULE_I] for r in rules]
     
-    if xy:
-        x,y = xy
-    else:
-        x = random_float()
-        y = random_float()
+    x = random_float()
+    y = random_float()
 
+    i = 0
+    
     while i < iters + skip:
         chosen = choose_rule(probs)
         x, y = calculate_transform(x, y, rules[chosen])
         
         if i > skip:
-            draw_method(x, y, chosen)
-        #Announce the results
-        if not speak_method: pass
-        elif i%announce_interval == 0:
-            speak_method(x, y, i)
-
+            yield (x, y, chosen, i)
         i += 1
 
 
-def calculate_best_settings(rules, scale, iters = 10000, skip = 100):
+def calculate_best_settings(rules, scale, iters = 20000, skip = 100):
     """Return a tuple of width and height and x_off and y_off settings
 ((w,h),(x_off, y_off))"""
-    #note, I know this is ugly, I don't know how else to do it though
-    global GLOBAL_h_x, GLOBAL_h_y, GLOBAL_l_x, GLOBAL_l_y
-    GLOBAL_h_x = GLOBAL_h_y = GLOBAL_l_x = GLOBAL_l_y = 0
+    h_x = l_x = h_y = l_y = 0
+    
+    for x, y, _, _ in generate_IFS(iters, skip, rules):
+        if x > h_x: h_x = x
+        if x < l_x: l_x = x
+        if y > h_y: h_y = y
+        if y < l_y: l_y = y
 
-    def draw_method(x, y, chosen):
-        global GLOBAL_h_x, GLOBAL_h_y, GLOBAL_l_x, GLOBAL_l_y
-        if x*scale > GLOBAL_h_x: GLOBAL_h_x = x*scale
-        elif x*scale < GLOBAL_l_x: GLOBAL_l_x = x*scale
-        if y*scale > GLOBAL_h_y: GLOBAL_h_y = y*scale
-        elif y*scale < GLOBAL_l_y: GLOBAL_l_y = y*scale
-        
-    run_IFS(iters, skip, rules, draw_method)
-    hx,lx,hy,ly = GLOBAL_h_x, GLOBAL_l_x, GLOBAL_h_y, GLOBAL_l_y
-    width = int(abs(lx)+abs(hx))
-    height = int(abs(ly)+abs(hy))
-    x_off = int(abs(lx))
-    y_off = int(abs(ly))
-
+    width = int((abs(l_x)+abs(h_x)) * scale)
+    height = int((abs(l_y)+abs(h_y)) * scale)
+    x_off = int(abs(l_x) * scale)
+    y_off = int(abs(l_y) * scale)
+    
     return ((width, height), (x_off, y_off))
+

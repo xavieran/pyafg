@@ -29,7 +29,7 @@ import libifs
 import sys
 
 
-dim = (800, 600)
+dim = (800, 800)
 screen = pygame.display.set_mode(dim)
 
 screen.fill((255,255,255))
@@ -43,18 +43,18 @@ def scale_points(p, s):
     return [(i[0]*s, i[1]*s) for i in p]
     
 def transform_points(p, tr):
-    return [libifs.calculate_transform(i[0],i[1],tr) for i in p]
+    return [libifs.calculate_transform(i[0],i[1],tr, True) for i in p]
 
     
-points = [(0,0), (1,0),(1,1),(0,1)]
+points = [(0,0), (1,0),(1,1),(0,1),(0,0),(.4,0),(0,.4)]
 width = 5
-scale = 128
-offset = (dim[0]/2, dim[1]/2 - scale)
+scale = 300
+offset = (dim[0]/2, dim[1]/2)# - scale)
 transforms = libifs.load_file(sys.argv[1])
 
-dr.polygon(screen, (255,0,0), offset_points(scale_points(points, scale), offset), 1)
+dr.polygon(screen, (0,0,140), offset_points(scale_points(points, scale), offset), 1)
 for i in range(0,len(transforms)):
-    dr.polygon(screen, (0,255,0), offset_points(scale_points(transform_points(points, transforms[i][1]), scale), offset), 2)
-
+    dr.polygon(screen, (0,255,0), offset_points(scale_points(transform_points(points, transforms[i][1]), scale), offset), 1)
+screen.blit(pygame.transform.flip(screen,0,1),(0,0))
 pygame.display.flip()
 raw_input()

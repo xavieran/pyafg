@@ -22,8 +22,11 @@
 #IFS affine fractal generator
 #
 import sys
+from optparse import OptionParser
 
 from libifs import *
+
+
 
 global VERBOSITY
 VERBOSITY = 1
@@ -45,112 +48,6 @@ def message(msg, importance, fd = None):
         else:
             print msg
 
-def load_transform(string, sep = ','):
-    """Load a string description of a matrix."""
-    a,b,c,d,e,f = [float(i.strip()) for i in string.split(sep)]
-    prob = abs(a*d-b*c)
-    if prob < .01: prob = .01
-    return (prob, (a,b,c,d,e,f))
-
-def load_file(file):
-    fd = open(file)
-    lines = fd.readlines()
-    fd.close()
-    if lines[-1] == '\n': lines = lines[:-1]
-    transforms = [load_transform(t.strip()) for t in lines]
-    s = sum([i[0] for i in transforms])
-    return [(i[0]/s, i[1]) for i in transforms]
-
-
-def calculate_transform(x, y, rule):
-    """x, y are the current x and y values, and rule is
-a tuple containing the (a,b,c,d,e,f) values.
-Return a (x,y) tuple"""
-    a,b,c,d,e,f = rule
-    t = a*x+b*y+e
-    y = c*x+d*y+f
-    return (t, y)
-
-def choose_rule(probs):
-    """Return the index of the rule chosen."""
-    chosen = 0
-    lim = random_float()
-    prob = probs[chosen]
-    while prob < lim:
-        chosen += 1
-        prob += probs[chosen]
-    return chosen
-
-def run_IFS(iters, skip, rules, draw_method, speak_method=None,\
-            announce_interval=None, xy=None, i=0):
-    """Run the IFS iteration loop
-    
-iters: number of iterations
-skip: number of iterations to skip (the first 100 or so won't be accurate)
-rules: a list of rules and their probabilities. Looks like: [(probs, rule)...
-draw_method: a function to be called each iteration after skip. This function
-    must take x and y as arguments, and also chosen (If you're colorising).
-    This could be a method to draw to a GUI canvas, or to draw to an image file,
-    or even something that simply uses the x and y values to calculate how
-    big a canvas would need to be.
-    Note, that the x and y values will be in their raw decimal form, so
-    any scaling must be performed by your function
-speak_method: a function to be called to announce the progress. It will be
-    called with speak_method(x, y, current iteration).
-announce_interval: This will be used to calculate when we need to
-    call speak_method. Every announce_interval iterations, speak_method will
-    be called. eg. if you had 100000 iterations, you might want to set
-    announce_interval to 1000
-xy: a tuple with x,y coordinates. You might want to use this to pick up a
-    calculation where it left off, for example."""
-    
-    probs = [r[PROB_I] for r in rules]
-    rules = [r[RULE_I] for r in rules]
-    
-    if xy:
-        x,y = xy
-    else:
-        x = random_float()
-        y = random_float()
-
-    while i < iters + skip:
-        chosen = choose_rule(probs)
-        x, y = calculate_transform(x, y, rules[chosen])
-        
-        if i > skip:
-            draw_method(x, y, chosen)
-        #Announce the results
-        if not speak_method: pass
-        elif i%announce_interval == 0:
-            speak_method(x, y, i)
-
-        i += 1
-
-
-def calculate_best_settings(rules, scale, iters = 10000, skip = 100):
-    """Return a tuple of width and height and x_off and y_off settings
-((w,h),(x_off, y_off))"""
-    #note, I know this is ugly, I don't know how else to do it though
-    global GLOBAL_h_x, GLOBAL_h_y, GLOBAL_l_x, GLOBAL_l_y
-    GLOBAL_h_x = GLOBAL_h_y = GLOBAL_l_x = GLOBAL_l_y = 0
-
-    def draw_method(x, y, chosen):
-        global GLOBAL_h_x, GLOBAL_h_y, GLOBAL_l_x, GLOBAL_l_y
-        if x*scale > GLOBAL_h_x: GLOBAL_h_x = x*scale
-        elif x*scale < GLOBAL_l_x: GLOBAL_l_x = x*scale
-        if y*scale > GLOBAL_h_y: GLOBAL_h_y = y*scale
-        elif y*scale < GLOBAL_l_y: GLOBAL_l_y = y*scale
-        
-    run_IFS(iters, skip, rules, draw_method)
-    hx,lx,hy,ly = GLOBAL_h_x, GLOBAL_l_x, GLOBAL_h_y, GLOBAL_l_y
-    width = int(abs(lx)+abs(hx))
-    height = int(abs(ly)+abs(hy))
-    x_off = int(abs(lx))
-    y_off = int(abs(ly))
-
-    return ((width, height), (x_off, y_off))
-
-
 def verify_string(string, regex):pass
 
 def split_int(s, inter):
@@ -165,10 +62,8 @@ def load_colors_from_file(file):
     fd.close()
     return [string2color(x.strip()) for x in lines if not x[0] == '#']
 
-if __name__ == "__main__":
-    #width, height, iterations, skiplen, how to plot (PIL, pygame, GTK, both?)
-#scale, x and y offsets,
-    from optparse import OptionParser
+
+def setup_parser():
     parser = OptionParser()
     parser.description = "%prog (pyafg is an affine fractal generator) is a utility"+\
         " to draw affine transformation fractals"+\
@@ -180,6 +75,8 @@ if __name__ == "__main__":
         help = "The scaling factor for your fractal. 100 is usually a good try")
     parser.add_option("-a", "--autocalc", action = "store_true", default = False,\
         help = "Print out autocalced dimensions and offsets for this scaling.")
+    parser.add_option("--speak-int", type = "int", default = 10000,\
+        help = "The cycles to wait before printing out progress")
     parser.add_option("-x", "--x-offset", type = "int", default = 0,\
         help = "x offset for the fractal. negative values allowed")
     parser.add_option("-y", "--y-offset", type = "int", default = 0,\
@@ -206,10 +103,18 @@ if __name__ == "__main__":
     parser.add_option("--progress", action = "store_true", default = False)
     parser.add_option("-v", "--verbosity", action = "store", type = "int",\
                       default = 1)
-    opts, args = parser.parse_args(sys.argv)
+
+    return parser
+
+
+def main(argv):
+    #width, height, iterations, skiplen, how to plot (PIL, pygame, GTK, both?)
+    #scale, x and y offsets,
+    parser = setup_parser()
+    opts, args = parser.parse_args(argv)
     args = args[1:]
     #Begin parsing arguments
-#    global VERBOSITY
+    #    global VERBOSITY
     VERBOSITY = opts.verbosity
     message("Beginning option parsing", V_DEBUG)
     scale = opts.scale
@@ -282,9 +187,8 @@ if __name__ == "__main__":
 
     global pixel_count
     pixel_count = {}
-    
-    def normal(x, y, chosen):
-        pixel_set((int(x*scale)+x_off, int(y*scale)+y_off), color)
+    def normal(x, y, chosen):#THIS IS A HACK (DIM, ETC.)
+        pixel_set((int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off), color)
 
     def regions(x, y, chosen):
         pixel_set((int(x*scale)+x_off, int(y*scale)+y_off), color[chosen])
@@ -307,15 +211,21 @@ if __name__ == "__main__":
                 pixel_set(pixel, c)
 
     draw_methods = [normal, regions, fancy]
-
-    def speak_method(x, y, i):
-        if not image:pygame.display.flip()
-        message("%d%% done."%((float(i)/float(its))*100), V_ESSENTIAL)
-                
-    run_IFS(its, skip, rules, draw_methods[opts.color_type], speak_method, 1000)
+    draw = draw_methods[opts.color_type]
     
+    for points in generate_IFS(its, skip, rules):
+        x, y, chosen, i = points
+        draw (x, y, chosen)
+        if i%opts.speak_int == 0:
+            if not image: pygame.display.flip()
+            message("%d%% done."%((float(i)/float(its))*100), V_ESSENTIAL)
+
     if image:
         screen.save(opts.save, "PNG")
         message("Saved image to %s"%opts.save, V_ESSENTIAL)
     else:
+        raw_input()
         message("Finished", V_ESSENTIAL)
+        
+if __name__ == "__main__":main(sys.argv)
+    

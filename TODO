@@ -5,4 +5,4 @@ Write tests for libifs.py
 Make coloring images saner
 Add/extend coloring algorithms
 Optimize?
-
+Allow to change background color.
