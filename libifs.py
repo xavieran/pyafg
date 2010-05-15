@@ -23,7 +23,6 @@
 
 import random
 random_float = random.random
-        
     
 
 #Constants used to index tuples
@@ -37,21 +36,28 @@ RULE_F_I = 5
 PROB_I = 0
 RULE_I = 1
 
+        
 def load_transform(string, sep = ','):
     """Load a string description of a matrix."""
     a,b,c,d,e,f = [float(i.strip()) for i in string.split(sep)]
     prob = abs(a*d-b*c)
     if prob < .01: prob = .01
-    return (prob, (a,b,c,d,e,f))
+    return [prob, [a,b,c,d,e,f]]
 
-def load_file(file):
-    fd = open(file)
-    lines = fd.readlines()
-    fd.close()
-    if lines[-1] == '\n': lines = lines[:-1]
+def load_str(string):
+    lines = [s.strip() for s in string.split("\n")]
+    lines = [s for s in lines if s]
+
     transforms = [load_transform(t.strip()) for t in lines]
     s = sum([i[0] for i in transforms])
-    return [(i[0]/s, i[1]) for i in transforms]
+    return [[i[0]/s, i[1]] for i in transforms]
+    
+def load_file(file):
+    fd = open(file)
+    tr = load_str(fd.read())
+    fd.close()
+    return tr
+    
 
 
 def calculate_transform(x, y, rule):
@@ -74,11 +80,18 @@ def choose_rule(probs):
     return chosen
 
 def generate_IFS(iters, skip, rules):
-    """Run the IFS iteration loop
+    """Run the IFS iteration loop, yielding a tuple of
+(x_coord, y_coord, index_of_chosen_rule, iterations_passed)
     
 iters: number of iterations
 skip: number of iterations to skip (the first 100 or so won't be accurate)
-rules: a list of rules and their probabilities. Looks like: [(probs, rule)..."""
+rules: a list of rules and their probabilities. Looks like: [(probs, rule)]
+
+NOTE: The _most_ important thing to remember about this is that all coordinates
+returned are in the cartesian plane, where the axes grow in all directions,
+whereas in most computer coordinate systems the y-axis grows downwards.
+So make sure you account for this. One easy way to convert cartesian to
+graphics coordinates is (height_of_drawing_area - y_coordinate)."""
     
     probs = [r[PROB_I] for r in rules]
     rules = [r[RULE_I] for r in rules]

@@ -39,7 +39,7 @@ V_DEBUG = 3
 COLOR_NORMAL = 0
 COLOR_REGION = 1
 COLOR_FANCY = 2 #Y'know, it's the, uh, one that makes the image look... gradual?
-
+COLOR_GRADIENT = 3
 
 def message(msg, importance, fd = None):
     if importance <= VERBOSITY:
@@ -55,6 +55,16 @@ def split_int(s, inter):
 
 def string2color(s):
     return [int(i) for i in split_int(s, 3)]
+
+def make_gradient(ir, ig, ib):
+    r = g = b = 0
+    colors = []
+    while (r < 255) and (g < 255) and (b < 255):
+        colors.append((r, g, b))
+        r+=ir
+        g+=ig
+        b+=ib
+    return colors
 
 def load_colors_from_file(file):
     fd = open(file)
@@ -81,13 +91,20 @@ def setup_parser():
         help = "x offset for the fractal. negative values allowed")
     parser.add_option("-y", "--y-offset", type = "int", default = 0,\
         help = "the y offset for the fractal. negative values allowed")
-    parser.add_option("-g", "--geometry", type = "string", default = "",\
+    parser.add_option("-G", "--geometry", type = "string", default = "",\
         help = "Size of the viewing window (or image). In WxH format. eg. 120x240")
     parser.add_option("-i", "--iterations", type = "int", default = 100000,\
         help = "The number of iterations to go through.")
     parser.add_option("--color-type", type = "int", default = COLOR_NORMAL,\
         help = "The type of coloring you want. Choices from COLOR_NORMAL (0),"+\
-        "COLOR_REGION (1), or COLOR_FANCY (2). Check the man page for details.")
+        "COLOR_REGION (1), COLOR_FANCY (2), or COLOR_GRADIENT (3)."+\
+        "Check the man page for details.")
+    parser.add_option("-r", "--red-int", type = "int", default = 0,\
+        help = "The interval that the red goes up by in the gradient.")
+    parser.add_option("-g", "--green-int", type = "int", default = 1,\
+        help = "The interval that the green goes up by in the gradient.")
+    parser.add_option("-b", "--blue-int", type = "int", default = 0,\
+        help = "The interval that the blue goes up by in the gradient.")
     parser.add_option("--color", type = "string", default = "000255000",\
         help = "A RRRGGGBBB string for the color to be used. If color-type is"+\
         " 2, you'll need to give as many colors as there are rules in your fractal")
@@ -151,6 +168,9 @@ def main(argv):
 
     elif opts.color_type == COLOR_FANCY:
         color = int(opts.color[0])
+
+    if opts.color_type == COLOR_GRADIENT:
+        color = make_gradient(opts.red_int, opts.green_int, opts.blue_int)
         
     skip = 500
 
@@ -173,9 +193,10 @@ def main(argv):
         import pygame
         image = False
         screen = pygame.display.set_mode(dim)
+
     
     message("Finished option parsing", V_DEBUG)
-    
+
 
     def pixel_set(xy, color):
         color = tuple(color)
@@ -191,10 +212,10 @@ def main(argv):
         pixel_set((int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off), color)
 
     def regions(x, y, chosen):
-        pixel_set((int(x*scale)+x_off, int(y*scale)+y_off), color[chosen])
+        pixel_set((int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off), color[chosen])
 
     def fancy(x, y, chosen):
-        pixel= (int(x*scale)+x_off, int(y*scale)+y_off)
+        pixel = (int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off)
         c = [0,0,0]
         global pixel_count
         if not pixel_count.has_key(pixel):
@@ -210,12 +231,23 @@ def main(argv):
                 c[color] = 50+10*pixel_count[pixel]
                 pixel_set(pixel, c)
 
-    draw_methods = [normal, regions, fancy]
+    def gradient(x, y, chosen):
+        pixel = (int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off)
+        global pixel_count
+        if not pixel_count.has_key(pixel):
+            pixel_set(pixel,color[0])
+            pixel_count[pixel] = 1
+        else:
+            pixel_count[pixel] += 1
+            try:pixel_set(pixel, color[pixel_count[pixel]])
+            except IndexError:pixel_set(pixel, color[-1])
+            
+    draw_methods = [normal, regions, fancy, gradient]
     draw = draw_methods[opts.color_type]
     
     for points in generate_IFS(its, skip, rules):
         x, y, chosen, i = points
-        draw (x, y, chosen)
+        draw(x, y, chosen)
         if i%opts.speak_int == 0:
             if not image: pygame.display.flip()
             message("%d%% done."%((float(i)/float(its))*100), V_ESSENTIAL)
