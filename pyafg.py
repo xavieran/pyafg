@@ -20,13 +20,14 @@
 #       MA 02110-1301, USA.#!/usr/bin/env python
 #
 #IFS affine fractal generator
-#
+
+
+
 import sys
 from optparse import OptionParser
 
 from libifs import *
-
-
+from pygame.locals import *
 
 global VERBOSITY
 VERBOSITY = 1
@@ -40,6 +41,8 @@ COLOR_NORMAL = 0
 COLOR_REGION = 1
 COLOR_FANCY = 2 #Y'know, it's the, uh, one that makes the image look... gradual?
 COLOR_GRADIENT = 3
+
+
 
 def message(msg, importance, fd = None):
     if importance <= VERBOSITY:
@@ -56,14 +59,16 @@ def split_int(s, inter):
 def string2color(s):
     return [int(i) for i in split_int(s, 3)]
 
-def make_gradient(ir, ig, ib):
-    r = g = b = 0
+def make_gradient(i, s, e):
+    r = s[0]
+    g = s[1]
+    b = s[2]
     colors = []
-    while (r < 255) and (g < 255) and (b < 255):
+    while (-1 < r < 256) and (-1 < g < 256) and (-1 < b < 256):
         colors.append((r, g, b))
-        r+=ir
-        g+=ig
-        b+=ib
+        r+=i[0]
+        g+=i[1]
+        b+=i[2]
     return colors
 
 def load_colors_from_file(file):
@@ -74,50 +79,72 @@ def load_colors_from_file(file):
 
 
 def setup_parser():
+    """Setup the option parser."""
     parser = OptionParser()
     parser.description = "%prog (pyafg is an affine fractal generator) is a utility"+\
         " to draw affine transformation fractals"+\
         " with or without a display. It uses PIL for image rendering, and pygame"+\
         " if you want to watch the fractal being drawn."
+        
     parser.usage = "%prog [options] <fractal.frct>"
     parser.prog = "pyafg"
+    
     parser.add_option("-s", "--scale", type = "int", default = 0,\
         help = "The scaling factor for your fractal. 100 is usually a good try")
+        
     parser.add_option("-a", "--autocalc", action = "store_true", default = False,\
         help = "Print out autocalced dimensions and offsets for this scaling.")
+        
     parser.add_option("--speak-int", type = "int", default = 10000,\
         help = "The cycles to wait before printing out progress")
+        
     parser.add_option("-x", "--x-offset", type = "int", default = 0,\
         help = "x offset for the fractal. negative values allowed")
+        
     parser.add_option("-y", "--y-offset", type = "int", default = 0,\
         help = "the y offset for the fractal. negative values allowed")
+        
     parser.add_option("-G", "--geometry", type = "string", default = "",\
         help = "Size of the viewing window (or image). In WxH format. eg. 120x240")
+        
     parser.add_option("-i", "--iterations", type = "int", default = 100000,\
         help = "The number of iterations to go through.")
+        
     parser.add_option("--color-type", type = "int", default = COLOR_NORMAL,\
         help = "The type of coloring you want. Choices from COLOR_NORMAL (0),"+\
         "COLOR_REGION (1), COLOR_FANCY (2), or COLOR_GRADIENT (3)."+\
         "Check the man page for details.")
-    parser.add_option("-r", "--red-int", type = "int", default = 0,\
-        help = "The interval that the red goes up by in the gradient.")
-    parser.add_option("-g", "--green-int", type = "int", default = 1,\
-        help = "The interval that the green goes up by in the gradient.")
-    parser.add_option("-b", "--blue-int", type = "int", default = 0,\
-        help = "The interval that the blue goes up by in the gradient.")
+        
+    parser.add_option("-g", "--gradient-int", type = "string", default = "1,1,1",\
+        help = "The interval that RGB go up (or down) by.")
+        
+    parser.add_option("-S", "--gradient-start", type = "string", default = "0,0,0",\
+        help = "The RGB values that the gradient starts at.")
+        
+    parser.add_option("-E", "--gradient-end", type = "string", default = "255,255,255",\
+        help = "The RGB values that the gradient ends at.")
+        
     parser.add_option("--color", type = "string", default = "000255000",\
         help = "A RRRGGGBBB string for the color to be used. If color-type is"+\
         " 2, you'll need to give as many colors as there are rules in your fractal")
+        
     parser.add_option("--color-file", type = "string", default = "",\
         help = "A file with RRRGGGBBB strings separated by newline. # is a comment character")
-    parser.add_option("--add-alpha", action = "store_true", default = False,\
-        help = "Interpret colors as RRRGGGBBBAAA. This may not work with pygame")
+
+    parser.add_option("-b", "--background", type = "string", default = "000000000",\
+        help = "Background color of the image.")
+    #parser.add_option("--add-alpha", action = "store_true", default = False,\
+    #    help = "Interpret colors as RRRGGGBBBAAA. This may not work with pygame")
+        
     parser.add_option("-o", "--save", type = "string", default = "",\
         help = "The file to save an image to. If this is set, the pygame display"+\
         " will not be shown, and the image generated will be saved to named file")
+        
     parser.add_option("-q", "--quiet", action = "store_false",\
                       default = "verbosity", help = "No output")
+                      
     parser.add_option("--progress", action = "store_true", default = False)
+    
     parser.add_option("-v", "--verbosity", action = "store", type = "int",\
                       default = 1)
 
@@ -170,7 +197,8 @@ def main(argv):
         color = int(opts.color[0])
 
     if opts.color_type == COLOR_GRADIENT:
-        color = make_gradient(opts.red_int, opts.green_int, opts.blue_int)
+        color = make_gradient([int(i) for i in opts.gradient_int.split(',')], [int(i) for i in opts.gradient_start.split(',')],\
+                              [int(i) for i in opts.gradient_end.split(',')])
         
     skip = 500
 
@@ -183,20 +211,27 @@ def main(argv):
     else: x_off = int(offsets[0])
     if opts.y_offset: y_off = opts.y_offset
     else: y_off = int(offsets[1])
-    
+
+    bg_col = tuple(string2color(opts.background))
     if opts.save:
         import Image as im
+        from ImageDraw import Draw
         image = True
         screen = im.new("RGB", dim)
+        draw = Draw(screen)
+        draw.rectangle([0,0, dim[0], dim[1]], fill = bg_col)
         pix = screen.load()
     else:
         import pygame
         image = False
         screen = pygame.display.set_mode(dim)
+        screen.fill(bg_col)
+        pygame.display.set_caption("pyafg - %s"%args[0])
 
     
     message("Finished option parsing", V_DEBUG)
 
+##### FINISHED OPTION PARSING #####
 
     def pixel_set(xy, color):
         color = tuple(color)
@@ -205,9 +240,12 @@ def main(argv):
             except IndexError:pass
         else:
             screen.set_at(xy, color)
-
+            
+#Use this for pixel counting
     global pixel_count
     pixel_count = {}
+
+#Drawing methods
     def normal(x, y, chosen):#THIS IS A HACK (DIM, ETC.)
         pixel_set((int(x*scale)+x_off, int(dim[1]-(y*scale))+y_off), color)
 
@@ -244,7 +282,8 @@ def main(argv):
             
     draw_methods = [normal, regions, fancy, gradient]
     draw = draw_methods[opts.color_type]
-    
+
+##### BEGIN ACTUALLY DRAWING THE IFS #####
     for points in generate_IFS(its, skip, rules):
         x, y, chosen, i = points
         draw(x, y, chosen)
@@ -252,12 +291,24 @@ def main(argv):
             if not image: pygame.display.flip()
             message("%d%% done."%((float(i)/float(its))*100), V_ESSENTIAL)
 
-    if image:
-        screen.save(opts.save, "PNG")
+    if image: #If we're just generating an image
+        screen.save(opts.save)
         message("Saved image to %s"%opts.save, V_ESSENTIAL)
-    else:
-        raw_input()
-        message("Finished", V_ESSENTIAL)
+    else: #Semi interactive mode...
+        while 1:
+            for event in pygame.event.get():
+                if event.type == QUIT: sys.exit()
+                if event.type == KEYDOWN:
+                    if event.key == K_s:
+                        file = args[0].split('.')[0]+'.png'
+                        new_image = pygame.Surface((dim[0], dim[1]))
+                        new_image.blit(screen, (0,0))
+                        pygame.image.save(new_image, file)
+                        print "Image saved to %s"%file
+                    elif event.key == K_q:
+                        sys.exit()
+            pygame.display.flip()
+                
         
 if __name__ == "__main__":main(sys.argv)
     

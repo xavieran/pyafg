@@ -1,8 +1,8 @@
 TODO:
-Handle colors nicely
-Add transform editor
+Handle colors nicely - tick
+Add transform editor - tick
 Write tests for libifs.py
-Make coloring images saner
-Add/extend coloring algorithms
+Make coloring images saner - tick
+Add/extend coloring algorithms - tick
 Optimize?
-Allow to change background color.
+Allow to change background color. - tick

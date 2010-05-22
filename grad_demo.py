@@ -26,28 +26,32 @@ import sys
 import pygame
 from pygame.locals import *
 
+from pyafg import make_gradient
+
 
 
 if __name__ == "__main__":
     #Initialize the display and background
     pygame.init()
     display = pygame.display.set_mode((400,400))
+    pygame.display.set_caption("Press a key to exit")
     pygame.display.flip()
     width = 1
-    r = g = b = 0
-    ir = int(sys.argv[1])
-    ig = int(sys.argv[2])
-    ib = int(sys.argv[3])
-    colors = []
+    if not sys.argv[1:]:
+        print "Demo, use to test out gradients. "
+    i = [int(x) for x in sys.argv[1].split(',')]
+    s = [int(x) for x in sys.argv[2].split(',')]
+    e = [int(x) for x in sys.argv[3].split(',')]
+    colors = make_gradient(i,s,e)
     y = 0
-    while (r < 255) and (g < 255) and (b < 255):
-       pygame.draw.line(display, (r,g,b), (0, y), (400, y), width)
+    for c in colors:
+       pygame.draw.line(display, c, (0, y), (400, y), width)
        pygame.display.flip()
-       r+=ir
-       g+=ig
-       b+=ib
-       y += width
-       colors.append((r, g, b))
+       y += 1
 
-    raw_input("%s"%len(colors))
+    while 1:
+        for event in pygame.event.get():
+            if event.type == QUIT: sys.exit()
+            if event.type == KEYDOWN: sys.exit()
+        pygame.display.flip()
 
