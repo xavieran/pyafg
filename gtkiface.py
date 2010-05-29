@@ -27,18 +27,10 @@ import gtk
 from libifs import *
 
 
+class TransformEditor(gtk.
+
 class Window:
     def destroy(self,widget=None,data=None):gtk.main_quit()
-    
-    def expose_handler(self, widget, event) :
-        w, h = widget.window.get_size()
-        xgc = widget.window.new_gc()
-        xgc.set_rgb_fg_color(gtk.gdk.color_parse("cyan"))
-        if not self.have_drawn:
-            rules = load_file("fractals/fern.frct")
-            for i in generate_IFS(100000, rules):
-                widget.window.draw_point(xgc, i[0]*40+110, i[1]*40+400)
-            self.have_drawn=True
 
     def __init__(self):
         #The window...
@@ -46,25 +38,19 @@ class Window:
         self.window.set_title('IFS')
         self.window.connect('destroy',self.destroy)
         
-        self.vbox = gtk.VBox()
-        self.window.add(self.vbox)
-
-        width, height = 200,400
-        self.drawing_area = gtk.DrawingArea()
-        self.drawing_area.set_size_request(width, height)
-        self.drawing_area.connect("expose-event", self.expose_handler)
-        self.vbox.pack_start(self.drawing_area)
-        
-        self.have_drawn = False
-        #self.drawing_area.set_size_request(width, height)
-
-        #self.drawing_area.pack()
-        
+        self.table = gtk.Table(1, 6, True)
+        self.window.add(self.table)
+        self.labels = []
+        for i in ['a','b','c','d','e','f']:
+            self.labels.append(gtk.Label(i))
+        for i in range(6):
+            self.table.attach(self.labels[i], i, i+1, 0, 1)
+        self.entries = 
 
 
     def show(self):
-        self.drawing_area.show()
-        self.vbox.show()
+        for i in self.labels:i.show()
+        self.table.show()
         self.window.show()
 
 

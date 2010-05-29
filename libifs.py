@@ -120,11 +120,10 @@ def calculate_best_settings(rules, scale, iters = 20000, skip = 100):
         if x < l_x: l_x = x
         if y > h_y: h_y = y
         if y < l_y: l_y = y
-
     width = int((abs(l_x)+abs(h_x)) * scale)
     height = int((abs(l_y)+abs(h_y)) * scale)
     x_off = int(abs(l_x) * scale)
-    y_off = int(abs(l_y) * scale)
+    y_off = int(l_y * scale)
     
     return ((width, height), (x_off, y_off))
 
